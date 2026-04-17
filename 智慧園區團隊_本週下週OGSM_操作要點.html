@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>團隊任務管理工具</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --accent: #00C9A7;
+    --accent2: #00A3FF;
+    --bg-dark: #0D1B2A;
+    --bg-card: #1A2B3C;
+    --bg-card2: #162436;
+    --text-main: #E8F0F8;
+    --text-sub: #8EA8C3;
+    --border: rgba(0,201,167,0.2);
+  }
+
+  body {
+    background: var(--bg-dark);
+    font-family: 'Segoe UI', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+    color: var(--text-main);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  .slideshow {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px 80px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+
+  .slide.active {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Background decorations */
+  .slide::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 10% 20%, rgba(0,201,167,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 90% 80%, rgba(0,163,255,0.06) 0%, transparent 50%);
+    pointer-events: none;
+  }
+
+  /* Page counter */
+  .page-counter {
+    position: fixed;
+    bottom: 28px;
+    right: 36px;
+    font-size: 14px;
+    color: var(--text-sub);
+    letter-spacing: 1px;
+    z-index: 100;
+  }
+
+  /* Nav arrows */
+  .nav-btn {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,201,167,0.1);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    z-index: 100;
+  }
+  .nav-btn:hover { background: rgba(0,201,167,0.25); }
+  .nav-btn.prev { left: 20px; }
+  .nav-btn.next { right: 20px; }
+
+  /* Progress bar */
+  .progress-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: var(--accent);
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* ─── Typography ─── */
+  .tag {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: clamp(32px, 5vw, 56px);
+    font-weight: 700;
+    line-height: 1.2;
+    color: #fff;
+    text-align: center;
+  }
+
+  h2 {
+    font-size: clamp(22px, 3.5vw, 38px);
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  h2 .accent { color: var(--accent); }
+
+  .subtitle {
+    font-size: clamp(14px, 2vw, 20px);
+    color: var(--text-sub);
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.6;
+    max-width: 680px;
+  }
+
+  .note {
+    font-size: 13px;
+    color: var(--text-sub);
+    text-align: center;
+    margin-top: 28px;
+    font-style: italic;
+    opacity: 0.8;
+  }
+
+  /* ─── Cards ─── */
+  .card-grid {
+    display: grid;
+    gap: 20px;
+    width: 100%;
+    max-width: 1000px;
+  }
+
+  .card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px 0 0 4px;
+  }
+
+  .card-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .card-body {
+    font-size: 14px;
+    color: var(--text-sub);
+    line-height: 1.7;
+  }
+
+  .card-body .slash { color: var(--accent); margin: 0 4px; }
+
+  /* ─── Bullet list ─── */
+  .bullet-list {
+    list-style: none;
+    max-width: 800px;
+    width: 100%;
+  }
+
+  .bullet-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    font-size: clamp(14px, 1.8vw, 17px);
+    line-height: 1.6;
+  }
+
+  .bullet-list li::before {
+    content: '▸';
+    color: var(--accent);
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 14px;
+  }
+
+  /* ─── Slide 1: Cover ─── */
+  #slide-1 .cover-title {
+    font-size: clamp(36px, 5.5vw, 64px);
+    font-weight: 800;
+    text-align: center;
+    color: #fff;
+    line-height: 1.15;
+  }
+
+  #slide-1 .cover-title span {
+    color: var(--accent);
+  }
+
+  #slide-1 .cover-line {
+    width: 80px;
+    height: 3px;
+    background: var(--accent);
+    margin: 24px auto;
+    border-radius: 2px;
+  }
+
+  #slide-1 .cover-sub {
+    font-size: clamp(14px, 2vw, 20px);
+    color: var(--text-sub);
+    text-align: center;
+    max-width: 600px;
+    line-height: 1.7;
+  }
+
+  #slide-1 .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,201,167,0.12);
+    border: 1px solid rgba(0,201,167,0.3);
+    border-radius: 20px;
+    padding: 8px 20px;
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 32px;
+    letter-spacing: 1px;
+  }
+
+  /* ─── Slide 5: Cycle ─── */
+  .cycle-container {
+    position: relative;
+    width: 560px;
+    height: 360px;
+    margin: 0 auto;
+  }
+
+  .cycle-step {
+    position: absolute;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    width: 148px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .cycle-step:hover { border-color: var(--accent); }
+
+  .cycle-step .step-time {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .cycle-step .step-desc {
+    font-size: 12px;
+    color: var(--text-sub);
+    line-height: 1.5;
+  }
+
+  /* Positions for 5 steps in oval */
+  .cycle-step:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); }
+  .cycle-step:nth-child(2) { top: 50%; right: 0; transform: translateY(-50%); }
+  .cycle-step:nth-child(3) { bottom: 0; right: 12%; }
+  .cycle-step:nth-child(4) { bottom: 0; left: 12%; }
+  .cycle-step:nth-child(5) { top: 50%; left: 0; transform: translateY(-50%); }
+
+  .cycle-arrows {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .cycle-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .cycle-center .mins {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .cycle-center .mins-label {
+    font-size: 12px;
+    color: var(--text-sub);
+  }
+
+  /* ─── Slide 7: Compare ─── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .compare-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 28px;
+    border: 1px solid;
+  }
+
+  .compare-card.bad {
+    border-color: rgba(255,80,80,0.3);
+  }
+
+  .compare-card.good {
+    border-color: rgba(0,201,167,0.35);
+  }
+
+  .compare-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .compare-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .bad .compare-icon { background: rgba(255,80,80,0.15); }
+  .good .compare-icon { background: rgba(0,201,167,0.15); }
+
+  .compare-label {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .bad .compare-label { color: #FF6B6B; }
+  .good .compare-label { color: var(--accent); }
+
+  .compare-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 14px;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+
+  .compare-item::before {
+    flex-shrink: 0;
+    margin-top: 3px;
+    font-size: 12px;
+  }
+
+  .bad .compare-item::before { content: '✕'; color: #FF6B6B; }
+  .good .compare-item::before { content: '✓'; color: var(--accent); }
+
+  /* ─── Slide 8: Three tier ─── */
+  .tier-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 960px;
+    margin-bottom: 32px;
+  }
+
+  .tier-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 28px 22px;
+    border: 1px solid var(--border);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .tier-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 3px;
+    width: 100%;
+    background: var(--accent);
+  }
+
+  .tier-icon {
+    font-size: 32px;
+    margin-bottom: 14px;
+  }
+
+  .tier-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 14px;
+  }
+
+  .tier-items {
+    list-style: none;
+    text-align: left;
+  }
+
+  .tier-items li {
+    font-size: 13px;
+    color: var(--text-sub);
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    line-height: 1.5;
+  }
+
+  .tier-items li:last-child { border-bottom: none; }
+
+  .quote-box {
+    background: rgba(0,201,167,0.08);
+    border: 1px solid rgba(0,201,167,0.25);
+    border-radius: 12px;
+    padding: 18px 32px;
+    max-width: 860px;
+    text-align: center;
+  }
+
+  .quote-box p {
+    font-size: clamp(14px, 1.8vw, 18px);
+    color: var(--text-main);
+    line-height: 1.7;
+    font-style: italic;
+  }
+
+  .quote-box p span { color: var(--accent); font-weight: 700; }
+
+  /* ─── Slide 4 ─── */
+  .feature-list {
+    width: 100%;
+    max-width: 860px;
+  }
+
+  .feature-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 18px 24px;
+    margin-bottom: 14px;
+    background: var(--bg-card);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+  }
+
+  .feature-num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0,201,167,0.15);
+    border: 1px solid rgba(0,201,167,0.4);
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .feature-text strong {
+    display: block;
+    font-size: 16px;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  .feature-text span {
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+
+  /* ─── Slide 6 ─── */
+  .op-card {
+    background: var(--bg-card);
+    border-radius: 14px;
+    padding: 22px 20px;
+    border: 1px solid var(--border);
+    height: 100%;
+  }
+
+  .op-badge {
+    display: inline-block;
+    background: rgba(0,201,167,0.12);
+    border: 1px solid rgba(0,201,167,0.35);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 12px;
+    font-family: 'Courier New', monospace;
+  }
+
+  .op-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+  }
+
+  .op-desc {
+    font-size: 13px;
+    color: var(--text-sub);
+    line-height: 1.6;
+  }
+
+  .op-arrow {
+    font-size: 12px;
+    color: var(--accent);
+    margin: 6px 0;
+    opacity: 0.8;
+  }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 768px) {
+    .slide { padding: 40px 30px; }
+    .card-grid.cols-3, .card-grid.cols-4 { grid-template-columns: 1fr; }
+    .card-grid.cols-2 { grid-template-columns: 1fr; }
+    .compare-grid { grid-template-columns: 1fr; }
+    .tier-grid { grid-template-columns: 1fr; }
+    .cycle-container { transform: scale(0.7); }
+  }
+</style>
+</head>
+<body>
+
+<div class="slideshow" id="slideshow">
+
+  <!-- Slide 1: Cover -->
+  <div class="slide active" id="slide-1">
+    <div class="tag">Team Productivity · 2026</div>
+    <div class="cover-title">
+      團隊任務<span>管理工具</span>
+    </div>
+    <div class="cover-line"></div>
+    <div class="cover-sub">
+      用 OGSM 建立方向感、溝通習慣與目標管理制度
+    </div>
+    <div class="badge">
+      <span>●</span> Google Sheet · OGSM · 非同步協作
+    </div>
+  </div>
+
+  <!-- Slide 2 -->
+  <div class="slide" id="slide-2">
+    <h2>好的工具，讓團隊合作<span class="accent">更順一點</span></h2>
+    <ul class="bullet-list">
+      <li>任務方向與優先順序，可以更清楚</li>
+      <li>主管與成員之間的資訊，可以更對稱</li>
+      <li>溝通與反饋，可以更有記錄、不容易遺漏</li>
+      <li>個人經驗與團隊 Knowhow，可以逐步文字化累積</li>
+    </ul>
+    <p class="note">這套工具不是完美解法，但隨著習慣建立，效果會越來越明顯。</p>
+  </div>
+
+  <!-- Slide 3 -->
+  <div class="slide" id="slide-3">
+    <h2>三種管理方法，整合在<span class="accent">一個 Google Sheet</span> 裡</h2>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon">⏱</div>
+        <div class="card-title">時間管理</div>
+        <div class="card-body">
+          每天 15 分鐘固定節奏<br>
+          <span class="slash">/</span>
+          早上啟動、傍晚覆盤
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <div class="card-title">目標管理</div>
+        <div class="card-body">
+          OGSM 框架對齊方向<br>
+          <span class="slash">/</span>
+          週月滾動調整
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-icon">☁️</div>
+        <div class="card-title">雲端協作</div>
+        <div class="card-body">
+          非同步溝通取代 Line<br>
+          <span class="slash">/</span>
+          @ 註解追蹤反饋
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:24px;">OGSM = Objective / Goal / Strategy / Measure</p>
+  </div>
+
+  <!-- Slide 4 -->
+  <div class="slide" id="slide-4">
+    <h2>每人一頁，<span class="accent">全團隊透明</span></h2>
+    <div class="feature-list">
+      <div class="feature-row">
+        <div class="feature-num">1</div>
+        <div class="feature-text">
+          <strong>團隊首頁</strong>
+          <span>彙整全員本週 / 下週重點，主管每週發信同步</span>
+        </div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">2</div>
+        <div class="feature-text">
+          <strong>個人頁面</strong>
+          <span>依分類記錄任務：專案、產品、BD、維養、學習成長</span>
+        </div>
+      </div>
+      <div class="feature-row">
+        <div class="feature-num">3</div>
+        <div class="feature-text">
+          <strong>時間軸橫向展開</strong>
+          <span>歷史進度可回溯，任何時間點都能查閱</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Cycle -->
+  <div class="slide" id="slide-5">
+    <h2>一個可以持續<span class="accent">滾動的週期</span></h2>
+
+    <div style="position:relative;width:620px;height:340px;margin:0 auto;">
+      <!-- SVG arrows -->
+      <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" viewBox="0 0 620 340">
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#00C9A7" opacity="0.7"/>
+          </marker>
+        </defs>
+        <!-- Top → Right -->
+        <path d="M 380,52 Q 530,80 530,150" stroke="#00C9A7" stroke-width="1.5" fill="none" stroke-dasharray="5,4" opacity="0.5" marker-end="url(#arr)"/>
+        <!-- Right → Bottom-right -->
+        <path d="M 530,195 Q 530,280 430,305" stroke="#00C9A7" stroke-width="1.5" fill="none" stroke-dasharray="5,4" opacity="0.5" marker-end="url(#arr)"/>
+        <!-- Bottom-right → Bottom-left -->
+        <path d="M 335,312 Q 280,320 200,305" stroke="#00C9A7" stroke-width="1.5" fill="none" stroke-dasharray="5,4" opacity="0.5" marker-end="url(#arr)"/>
+        <!-- Bottom-left → Left -->
+        <path d="M 100,295 Q 68,250 68,195" stroke="#00C9A7" stroke-width="1.5" fill="none" stroke-dasharray="5,4" opacity="0.5" marker-end="url(#arr)"/>
+        <!-- Left → Top -->
+        <path d="M 68,148 Q 80,60 238,42" stroke="#00C9A7" stroke-width="1.5" fill="none" stroke-dasharray="5,4" opacity="0.5" marker-end="url(#arr)"/>
+      </svg>
+
+      <!-- Steps -->
+      <div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:2px solid var(--border);border-radius:12px;padding:10px 14px;width:152px;text-align:center;">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;">週一早上</div>
+        <div style="font-size:12px;color:var(--text-sub);">鳥瞰方向</div>
+      </div>
+
+      <div style="position:absolute;top:50%;right:0;transform:translateY(-50%);background:var(--bg-card);border:2px solid var(--border);border-radius:12px;padding:10px 14px;width:140px;text-align:center;">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;">每日早上</div>
+        <div style="font-size:12px;color:var(--text-sub);">確認 3~5 項任務</div>
+      </div>
+
+      <div style="position:absolute;bottom:4px;right:8%;background:var(--bg-card);border:2px solid var(--border);border-radius:12px;padding:10px 14px;width:148px;text-align:center;">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;">每日傍晚</div>
+        <div style="font-size:12px;color:var(--text-sub);">覆盤更新顏色</div>
+      </div>
+
+      <div style="position:absolute;bottom:4px;left:8%;background:var(--bg-card);border:2px solid var(--border);border-radius:12px;padding:10px 14px;width:148px;text-align:center;">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;">週五傍晚</div>
+        <div style="font-size:12px;color:var(--text-sub);">統整整理下週</div>
+      </div>
+
+      <div style="position:absolute;top:50%;left:0;transform:translateY(-50%);background:var(--bg-card);border:2px solid var(--border);border-radius:12px;padding:10px 14px;width:140px;text-align:center;">
+        <div style="font-size:11px;color:var(--accent);font-weight:700;margin-bottom:4px;">週末</div>
+        <div style="font-size:12px;color:var(--text-sub);">主管彙整發信</div>
+      </div>
+
+      <!-- Center -->
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;">
+        <div style="font-size:26px;font-weight:800;color:var(--accent);">15 min</div>
+        <div style="font-size:12px;color:var(--text-sub);">每天合計</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6 -->
+  <div class="slide" id="slide-6">
+    <h2>四個<span class="accent">關鍵操作</span>設計</h2>
+    <div class="card-grid cols-4" style="max-width:1100px;">
+      <div class="op-card">
+        <div class="op-badge">黑 / 橘 / 綠</div>
+        <div class="op-title">顏色管理</div>
+        <div class="op-arrow">→</div>
+        <div class="op-desc">一眼鳥瞰進度，不需開會問進度</div>
+      </div>
+      <div class="op-card">
+        <div class="op-badge">* 符號</div>
+        <div class="op-title">標記計劃外任務</div>
+        <div class="op-arrow">→</div>
+        <div class="op-desc">區分計劃內外，長期改善規劃能力</div>
+      </div>
+      <div class="op-card">
+        <div class="op-badge">--&gt; 展開</div>
+        <div class="op-title">下一步拆解</div>
+        <div class="op-arrow">→</div>
+        <div class="op-desc">強迫思考後續，任務不斷鏈</div>
+      </div>
+      <div class="op-card">
+        <div class="op-badge">Highlight</div>
+        <div class="op-title">風險欄位</div>
+        <div class="op-arrow">→</div>
+        <div class="op-desc">風險提早曝光，主管提早介入</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7 -->
+  <div class="slide" id="slide-7">
+    <h2>溝通要有<span class="accent">記錄</span>，反饋要能<span class="accent">追蹤</span></h2>
+    <div class="compare-grid">
+      <div class="compare-card bad">
+        <div class="compare-header">
+          <div class="compare-icon">💬</div>
+          <div class="compare-label">Line 的問題</div>
+        </div>
+        <div class="compare-item">訊息零散容易被洗掉</div>
+        <div class="compare-item">對方忙碌看了沒回</div>
+        <div class="compare-item">沒有任務歸屬，責任不清</div>
+      </div>
+      <div class="compare-card good">
+        <div class="compare-header">
+          <div class="compare-icon">📊</div>
+          <div class="compare-label">Google Sheet @ 註解</div>
+        </div>
+        <div class="compare-item">留言直接對應任務欄位</div>
+        <div class="compare-item">自動 Email 通知，不打擾當下</div>
+        <div class="compare-item">回覆記錄留存，隨時可查</div>
+        <div class="compare-item">主管反饋清楚對應，部屬知道怎麼調整</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 8 -->
+  <div class="slide" id="slide-8">
+    <h2>三層<span class="accent">效用</span></h2>
+    <div class="tier-grid">
+      <div class="tier-card">
+        <div class="tier-icon">👤</div>
+        <div class="tier-title">個人</div>
+        <ul class="tier-items">
+          <li>自我管理，任務不遺漏</li>
+          <li>每天有方向感</li>
+          <li>經驗文字化，可回顧</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-icon">👁</div>
+        <div class="tier-title">主管</div>
+        <ul class="tier-items">
+          <li>即時掌握團隊狀況</li>
+          <li>給出有記錄的反饋</li>
+          <li>資源調配更有依據</li>
+        </ul>
+      </div>
+      <div class="tier-card">
+        <div class="tier-icon">🏢</div>
+        <div class="tier-title">團隊</div>
+        <ul class="tier-items">
+          <li>方向一致</li>
+          <li>Knowhow 不再只在腦袋裡</li>
+          <li>長期可供回顧與成長</li>
+        </ul>
+      </div>
+    </div>
+    <div class="quote-box">
+      <p>「每天 <span>15 分鐘</span>的記錄習慣，是讓個人與團隊<span>持續進步</span>的最小投資。」</p>
+    </div>
+  </div>
+
+</div><!-- /slideshow -->
+
+<!-- UI Elements -->
+<button class="nav-btn prev" onclick="changeSlide(-1)">‹</button>
+<button class="nav-btn next" onclick="changeSlide(1)">›</button>
+<div class="page-counter" id="counter">1 / 8</div>
+<div class="progress-bar" id="progress"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  function showSlide(n) {
+    slides[current].classList.remove('active');
+    current = (n + total) % total;
+    slides[current].classList.add('active');
+    document.getElementById('counter').textContent = (current + 1) + ' / ' + total;
+    document.getElementById('progress').style.width = ((current + 1) / total * 100) + '%';
+  }
+
+  function changeSlide(dir) {
+    showSlide(current + dir);
+  }
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); changeSlide(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); changeSlide(-1);
+    }
+  });
+
+  // Click to advance (avoid nav buttons)
+  document.getElementById('slideshow').addEventListener('click', e => {
+    if (e.target.closest('.nav-btn')) return;
+    changeSlide(1);
+  });
+
+  // Touch swipe
+  let touchStartX = 0;
+  document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; });
+  document.addEventListener('touchend', e => {
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) changeSlide(diff > 0 ? 1 : -1);
+  });
+
+  // Init progress bar
+  document.getElementById('progress').style.width = (1 / total * 100) + '%';
+</script>
+
+</body>
+</html>
